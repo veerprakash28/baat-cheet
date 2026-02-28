@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import axios from 'axios';
 
@@ -6,6 +7,30 @@ const AuthContext = createContext();
 
 // Replace with your local IP for physical device testing
 export const API_URL = 'http://localhost:5000/api';
+
+// Cross-platform storage helper (SecureStore on native, localStorage on web)
+const storage = {
+    getItem: async (key) => {
+        if (Platform.OS === 'web') {
+            return localStorage.getItem(key);
+        }
+        return await SecureStore.getItemAsync(key);
+    },
+    setItem: async (key, value) => {
+        if (Platform.OS === 'web') {
+            localStorage.setItem(key, value);
+        } else {
+            await SecureStore.setItemAsync(key, value);
+        }
+    },
+    deleteItem: async (key) => {
+        if (Platform.OS === 'web') {
+            localStorage.removeItem(key);
+        } else {
+            await SecureStore.deleteItemAsync(key);
+        }
+    },
+};
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
@@ -18,8 +43,8 @@ export const AuthProvider = ({ children }) => {
 
     const loadStoredData = async () => {
         try {
-            const storedToken = await SecureStore.getItemAsync('userToken');
-            const storedUser = await SecureStore.getItemAsync('userData');
+            const storedToken = await storage.getItem('userToken');
+            const storedUser = await storage.getItem('userData');
 
             if (storedToken && storedUser) {
                 setToken(storedToken);
@@ -36,8 +61,8 @@ export const AuthProvider = ({ children }) => {
         try {
             const { data } = await axios.post(`${API_URL}/auth/login`, { email, password });
             if (data.success) {
-                await SecureStore.setItemAsync('userToken', data.token);
-                await SecureStore.setItemAsync('userData', JSON.stringify(data));
+                await storage.setItem('userToken', data.token);
+                await storage.setItem('userData', JSON.stringify(data));
                 setToken(data.token);
                 setUser(data);
                 return { success: true };
@@ -51,8 +76,8 @@ export const AuthProvider = ({ children }) => {
         try {
             const { data } = await axios.post(`${API_URL}/auth/register`, { username, email, password });
             if (data.success) {
-                await SecureStore.setItemAsync('userToken', data.token);
-                await SecureStore.setItemAsync('userData', JSON.stringify(data));
+                await storage.setItem('userToken', data.token);
+                await storage.setItem('userData', JSON.stringify(data));
                 setToken(data.token);
                 setUser(data);
                 return { success: true };
@@ -63,8 +88,8 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = async () => {
-        await SecureStore.deleteItemAsync('userToken');
-        await SecureStore.deleteItemAsync('userData');
+        await storage.deleteItem('userToken');
+        await storage.deleteItem('userData');
         setToken(null);
         setUser(null);
     };
